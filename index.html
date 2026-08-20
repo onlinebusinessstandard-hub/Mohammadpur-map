@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Mohammadpur Crime Risk Mapping</title>
+<title>Mohammadpur Crime Risk Mapping Report</title>
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -33,13 +33,11 @@
 
   *{box-sizing:border-box;}
   html,body{
-    margin:0; padding:0; width:100%; min-height:100%;
+    margin:0; padding:0; height:100%; width:100%;
     background:var(--bg); color:var(--ink);
     font-family:'Inter',system-ui,sans-serif;
-    overflow-x:hidden;
+    overflow:hidden;
   }
-  body{ max-width:580px; margin:0 auto; }
-  #embed-shell{ width:100%; max-width:580px; margin:0 auto; padding-bottom:58px; }
 
   .mono{ font-family:'IBM Plex Mono',monospace; letter-spacing:0.04em; }
 
@@ -86,10 +84,10 @@
 
   /* ---------- MAP ---------- */
   #map{
-    position:relative; height:440px; width:100%;
+    position:absolute; inset:0; top:0; height:100%; width:100%;
     background:var(--bg);
   }
-  #map-wrap{ position:relative; height:auto; width:100%; }
+  #map-wrap{ position:relative; height:calc(100% - 68px); width:100%; }
   .leaflet-container{ background:var(--bg); font-family:'Inter',sans-serif; }
 
   .scanlines{
@@ -100,11 +98,10 @@
 
   /* ---------- LEGEND ---------- */
   #legend{
-    position:relative; left:auto; bottom:auto; z-index:600;
-    margin:12px;
+    position:absolute; left:16px; bottom:16px; z-index:600;
     background:rgba(255,255,255,0.88); backdrop-filter:blur(10px);
     border:1px solid var(--border); border-radius:10px;
-    padding:12px 14px 10px; width:auto;
+    padding:14px 16px 12px; width:228px;
     box-shadow:0 12px 32px rgba(15,23,42,0.12);
   }
   #legend .lg-head{
@@ -133,11 +130,11 @@
 
   /* ---------- ZONE PANEL ---------- */
   #panel{
-    position:relative; right:auto; top:auto; bottom:auto; z-index:600;
-    width:auto; max-width:none; margin:12px;
+    position:absolute; right:16px; top:16px; bottom:16px; z-index:600;
+    width:296px; max-width:calc(100vw - 32px);
     background:rgba(255,255,255,0.88); backdrop-filter:blur(10px);
     border:1px solid var(--border); border-radius:10px;
-    display:flex; flex-direction:column; overflow:hidden; max-height:430px;
+    display:flex; flex-direction:column; overflow:hidden;
     box-shadow:0 12px 32px rgba(15,23,42,0.12);
     transition:transform 0.3s ease;
   }
@@ -265,43 +262,24 @@
     padding-top:8px; line-height:1.4;
   }
 
-
-  /* ---------- EMBED NAVIGATION ---------- */
-  #bottom-nav{
-    position:fixed; left:50%; bottom:0; transform:translateX(-50%);
-    width:min(580px,100vw); z-index:1000;
-    display:grid; grid-template-columns:repeat(3,1fr);
-    background:rgba(255,255,255,.97); backdrop-filter:blur(12px);
-    border-top:1px solid var(--border);
-    box-shadow:0 -8px 24px rgba(15,23,42,.10);
-    padding:7px 8px calc(7px + env(safe-area-inset-bottom));
-  }
-  .bottom-nav-btn{
-    border:0; background:transparent; color:var(--ink-dim);
-    font:600 10px 'IBM Plex Mono',monospace; text-transform:uppercase;
-    letter-spacing:.06em; padding:8px 4px; border-radius:7px; cursor:pointer;
-  }
-  .bottom-nav-btn.active{ background:#eef1f5; color:var(--boundary); }
-  .bottom-nav-btn span{ display:block; font-size:16px; line-height:1; margin-bottom:4px; }
-
   /* ---------- RESPONSIVE ---------- */
-  @media (max-width:580px){
-    #header{padding:12px 14px;}
-    #header h1{font-size:20px; white-space:normal;}
-    #header .stamp, #header .subtitle{display:none;}
-    #map{height:58vw; min-height:340px; max-height:440px;}
-    #legend, #panel{margin:10px;}
-    #panel{max-height:390px;}
-    #legend .lg-row{font-size:11.5px;}
-    .leaflet-control-zoom{margin-bottom:8px !important; margin-right:8px !important;}
-  }
-  @media (min-width:581px){
-    #map{height:440px;}
+  @media (max-width:760px){
+    #header{ padding:12px 14px; }
+    #header .stamp{ display:none; }
+    #header .subtitle{ display:none; }
+    #legend{ width:180px; padding:11px 12px 10px; left:10px; bottom:10px; }
+    #legend .lg-note{ display:none; }
+    #panel{
+      right:10px; left:10px; width:auto; top:auto; bottom:10px; height:44%;
+      transform:translateY(calc(100% - 46px));
+    }
+    #panel.open{ transform:translateY(0); }
+    #panel-toggle{ display:block; top:auto; bottom:10px; right:10px; }
+    #panel.open ~ #panel-toggle{ display:none; }
   }
 </style>
 </head>
 <body>
-<div id="embed-shell">
 
 <div id="header">
   <div class="titleblock">
@@ -325,6 +303,8 @@
     <div class="lg-note">Sample data, for layout demonstration.</div>
   </div>
 
+  <button id="panel-toggle" class="mono">ZONE INDEX ▲</button>
+
   <div id="panel">
     <div class="p-head">
       <span class="p-title mono">Zone Index</span>
@@ -333,13 +313,6 @@
     <div class="p-list" id="zone-list"></div>
     <div class="p-foot">Coordinates are approximate zone centroids for visualization purposes only. Not for operational or legal use.</div>
   </div>
-</div>
-</div>
-
-<div id="bottom-nav" aria-label="Map navigation">
-  <button class="bottom-nav-btn active" data-target="map-wrap"><span>⌖</span>Map</button>
-  <button class="bottom-nav-btn" data-target="panel"><span>☷</span>Zones</button>
-  <button class="bottom-nav-btn" data-target="legend"><span>◈</span>Legend</button>
 </div>
 
 <script>
@@ -500,17 +473,12 @@ function setActive(name){
   if(el){ el.classList.add('active'); el.scrollIntoView({block:'nearest', behavior:'smooth'}); }
 }
 
-/* ---- Bottom navigation ---- */
-document.querySelectorAll('.bottom-nav-btn').forEach(btn=>{
-  btn.addEventListener('click', ()=>{
-    document.querySelectorAll('.bottom-nav-btn').forEach(b=>b.classList.remove('active'));
-    btn.classList.add('active');
-    const target = document.getElementById(btn.dataset.target);
-    if(target) target.scrollIntoView({behavior:'smooth', block:'start'});
-    if(btn.dataset.target === 'map-wrap'){
-      setTimeout(()=>map.invalidateSize(), 350);
-    }
-  });
+/* ---- Mobile panel toggle ---- */
+const panel = document.getElementById('panel');
+const toggleBtn = document.getElementById('panel-toggle');
+toggleBtn.addEventListener('click', ()=>{
+  panel.classList.toggle('open');
+  toggleBtn.textContent = panel.classList.contains('open') ? 'ZONE INDEX ▼' : 'ZONE INDEX ▲';
 });
 </script>
 
