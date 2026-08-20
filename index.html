@@ -5,10 +5,6 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Mohammadpur Crime Risk Mapping</title>
 
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
@@ -35,11 +31,11 @@
   html,body{
     margin:0; padding:0; height:100%; width:100%;
     background:var(--bg); color:var(--ink);
-    font-family:'Inter',system-ui,sans-serif;
+    font-family:'FF Meta Serif Pro', serif;
     overflow:hidden;
   }
 
-  .mono{ font-family:'IBM Plex Mono',monospace; letter-spacing:0.04em; }
+  .mono{ font-family:'FF Meta Serif Pro', serif; letter-spacing:0.04em; }
 
   /* ---------- HEADER ---------- */
   #header{
@@ -62,7 +58,7 @@
   }
   @keyframes blink{ 0%,100%{opacity:1;} 50%{opacity:0.25;} }
   #header h1{
-    font-family:'Oswald',sans-serif; font-weight:600;
+    font-family:'FF Meta Serif Pro', serif; font-weight:600;
     font-size:clamp(18px,2.6vw,28px);
     letter-spacing:0.02em; text-transform:uppercase;
     margin:0; line-height:1.1; color:var(--ink);
@@ -75,7 +71,7 @@
     flex:0 0 auto;
     border:1.5px dashed #c62828;
     color:#ef5350; padding:8px 14px; border-radius:4px;
-    font-family:'IBM Plex Mono',monospace; font-size:10.5px; font-weight:600;
+    font-family:'FF Meta Serif Pro', serif; font-size:10.5px; font-weight:600;
     letter-spacing:0.08em; text-transform:uppercase; text-align:center;
     transform:rotate(-4deg);
     background:rgba(198,40,40,0.06);
@@ -88,7 +84,7 @@
     background:var(--bg);
   }
   #map-wrap{ position:relative; height:calc(100% - 68px); width:100%; }
-  .leaflet-container{ background:var(--bg); font-family:'Inter',sans-serif; }
+  .leaflet-container{ background:var(--bg); font-family:'FF Meta Serif Pro', serif; }
 
   .scanlines{
     position:absolute; inset:0; z-index:400; pointer-events:none;
@@ -161,7 +157,7 @@
   .zone-card .zc-rank{ font-size:10px; color:var(--ink-faint); }
   .zone-card .zc-badge{
     font-size:9.5px; padding:2px 7px; border-radius:20px; text-transform:uppercase;
-    font-family:'IBM Plex Mono',monospace; letter-spacing:0.05em; font-weight:600;
+    font-family:'FF Meta Serif Pro', serif; letter-spacing:0.05em; font-weight:600;
   }
   .zone-card .zc-name{ font-size:14px; font-weight:600; color:var(--ink); margin-bottom:6px; }
   .zone-card .zc-bar-track{ height:4px; border-radius:3px; background:#e1e6ec; overflow:hidden; margin-bottom:5px; }
@@ -177,13 +173,13 @@
     display:none; position:absolute; right:16px; top:16px; z-index:601;
     background:var(--panel); border:1px solid var(--border); color:var(--ink);
     padding:9px 12px; border-radius:8px; font-size:11px; cursor:pointer;
-    font-family:'IBM Plex Mono',monospace;
+    font-family:'FF Meta Serif Pro', serif;
   }
 
   /* ---------- BOUNDARY LABEL ---------- */
   .boundary-label{
     background:transparent !important; border:none !important; box-shadow:none !important;
-    color:var(--boundary) !important; font-family:'IBM Plex Mono',monospace !important;
+    color:var(--boundary) !important; font-family:'FF Meta Serif Pro', serif !important;
     font-size:10.5px !important; letter-spacing:0.14em !important; font-weight:600;
     text-shadow:0 0 6px rgba(255,255,255,0.95), 0 0 3px rgba(255,255,255,0.95);
     opacity:0.9;
@@ -212,7 +208,7 @@
     100%{ transform:scale(2.1); opacity:0; }
   }
   .pin-rank{
-    margin-top:2px; font-family:'IBM Plex Mono',monospace;
+    margin-top:2px; font-family:'FF Meta Serif Pro', serif;
     font-size:9px; font-weight:600; background:rgba(8,10,13,0.75);
     padding:1px 5px; border-radius:3px; letter-spacing:0.05em;
   }
@@ -232,11 +228,11 @@
   .leaflet-popup-close-button{ color:#8b96a5 !important; }
   .crime-popup{ padding:14px 15px 12px; }
   .crime-popup .popup-eyebrow{
-    font-family:'IBM Plex Mono',monospace; font-size:10px;
+    font-family:'FF Meta Serif Pro', serif; font-size:10px;
     letter-spacing:0.08em; margin-bottom:5px;
   }
   .crime-popup .popup-title{
-    font-family:'Oswald',sans-serif; font-size:18px; font-weight:600;
+    font-family:'FF Meta Serif Pro', serif; font-size:18px; font-weight:600;
     color:#fff; text-transform:uppercase; letter-spacing:0.01em; margin-bottom:8px;
   }
   .crime-popup .popup-badge{
@@ -249,7 +245,7 @@
   }
   .crime-popup .popup-score-row{
     display:flex; justify-content:space-between; align-items:baseline;
-    font-family:'IBM Plex Mono',monospace; font-size:10px; color:#5b6472;
+    font-family:'FF Meta Serif Pro', serif; font-size:10px; color:#5b6472;
     text-transform:uppercase; margin-bottom:4px;
   }
   .crime-popup .popup-score{ font-size:13px; font-weight:600; }
@@ -283,7 +279,6 @@
 
 <div id="header">
   <div class="titleblock">
-   
     <div class="subtitle">Zone-based severity assessment &nbsp;—&nbsp; Mohammadpur Thana, Dhaka Metropolitan Area</div>
   </div>
 </div>
