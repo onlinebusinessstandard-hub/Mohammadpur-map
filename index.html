@@ -19,14 +19,6 @@
     --ink-dim:#57626f;
     --ink-faint:#93a0ad;
     --boundary:#132A52;
-    
-    /* Strict Requested Palette */
-    --c-red: #d32f2f;      /* Red */
-    --c-black: #000000;    /* Black */
-    --c-accent: #1f4343;   /* Accent */
-    --c-yellow: #fbc02d;   /* Yellow */
-    --c-blue: #1976d2;     /* Blue */
-    --c-green: #388e3c;    /* Green */
   }
 
   *{box-sizing:border-box;}
@@ -134,6 +126,16 @@
     font-family:'FF Meta Serif Pro', serif;
   }
 
+  /* ---------- BOUNDARY LABEL ---------- */
+  .boundary-label{
+    background:transparent !important; border:none !important; box-shadow:none !important;
+    color:var(--boundary) !important; font-family:'FF Meta Serif Pro', serif !important;
+    font-size:10.5px !important; letter-spacing:0.14em !important; font-weight:600;
+    text-shadow:0 0 6px rgba(255,255,255,0.95), 0 0 3px rgba(255,255,255,0.95);
+    opacity:0.9;
+  }
+  .boundary-label::before{ display:none !important; }
+
   /* ---------- CUSTOM MARKER PIN ---------- */
   .custom-pin-icon{ background:transparent; border:none; }
   .pin-wrap{ position:relative; width:46px; height:58px; display:flex; flex-direction:column; align-items:center; }
@@ -166,16 +168,14 @@
   /* ---------- PROPER MOBILE RESPONSIVENESS ---------- */
   @media (max-width:768px){
     #header{ padding:12px 16px; }
-    #header .subtitle{ display:none; } /* Hide long text on mobile */
+    #header .subtitle{ display:none; } 
     
-    /* Float legend to top left, scale slightly to save space */
     #legend{ 
       left:10px; top:10px; bottom:auto; width:auto; padding:10px;
       transform-origin: top left; transform: scale(0.9);
       box-shadow: 0 4px 12px rgba(0,0,0,0.15);
     }
     
-    /* Panel becomes a Bottom Sheet */
     #panel{
       right:0; left:0; bottom:0; top:auto; width:100%; height:55vh;
       border-radius:24px 24px 0 0; border:none; border-top:1px solid var(--border);
@@ -184,9 +184,8 @@
     #panel.open{ transform:translateY(0); }
     #panel-close { display: flex; }
     
-    /* Toggle Button */
     #panel-toggle{ display:block; }
-    #panel.open ~ #panel-toggle{ display:none; } /* Hide button when panel is up */
+    #panel.open ~ #panel-toggle{ display:none; } 
   }
 </style>
 </head>
@@ -203,16 +202,20 @@
   <div id="map"></div>
   <div class="scanlines"></div>
 
-  <!-- 1. Legend -->
+  <!-- Legend -->
   <div id="legend">
     <div class="lg-head"><span>Risk Legend</span><span>6 Zones</span></div>
+    
+    <div class="lg-row">
+      <div class="lg-line"></div>
+      <div class="lg-label">Mohammadpur Boundary</div>
+    </div>
+    
     <div id="legend-rows"></div>
   </div>
 
-  <!-- 2. The "Other One" (Mobile Toggle Button) -->
   <button id="panel-toggle">VIEW ZONE INDEX ▲</button>
 
-  <!-- 3. Zone Index Panel -->
   <div id="panel">
     <div class="p-head">
       <span class="p-title mono">Zone Index</span>
@@ -223,17 +226,16 @@
 </div>
 
 <script>
-// Strictly enforced color palette
+// Colors updated to raw hex strings so alpha transparencies (e.g. + "15") append cleanly.
 const zones = [
-  { name:"Geneva Camp", severity:"Critical", score:9, hex:"var(--c-red)", lat:23.7602, lng:90.3538, radius:340, rank:1, pinSize:46, stat:"Drug-related offenses, extortion reports." },
-  { name:"Bosila", severity:"High", score:7, hex:"var(--c-black)", lat:23.7480, lng:90.3450, radius:400, rank:2, pinSize:42, stat:"Robbery, localized gang-related activity." },
-  { name:"Adabor", severity:"Moderate-High", score:6, hex:"var(--c-accent)", lat:23.7735, lng:90.3570, radius:430, rank:3, pinSize:38, stat:"Burglary, street-level theft." },
-  { name:"Central Mohammadpur", severity:"Moderate", score:5, hex:"var(--c-yellow)", lat:23.7656, lng:90.3595, radius:400, rank:4, pinSize:35, stat:"Petty theft, public harassment reports." },
-  { name:"Eastern Mohammadpur", severity:"Low-Moderate", score:3, hex:"var(--c-blue)", lat:23.7620, lng:90.3680, radius:400, rank:5, pinSize:32, stat:"Minor theft, isolated vandalism." },
-  { name:"Shyamoli Area", severity:"Low", score:2, hex:"var(--c-green)", lat:23.7739, lng:90.3648, radius:450, rank:6, pinSize:30, stat:"Infrequent, low-impact petty offenses." }
+  { name:"Geneva Camp", severity:"Critical", score:9, hex:"#d32f2f", lat:23.7602, lng:90.3538, radius:340, rank:1, pinSize:46, stat:"Drug-related offenses, extortion reports." },
+  { name:"Bosila", severity:"High", score:7, hex:"#000000", lat:23.7480, lng:90.3450, radius:400, rank:2, pinSize:42, stat:"Robbery, localized gang-related activity." },
+  { name:"Adabor", severity:"Moderate-High", score:6, hex:"#1f4343", lat:23.7735, lng:90.3570, radius:430, rank:3, pinSize:38, stat:"Burglary, street-level theft." },
+  { name:"Central Mohammadpur", severity:"Moderate", score:5, hex:"#fbc02d", lat:23.7656, lng:90.3595, radius:400, rank:4, pinSize:35, stat:"Petty theft, public harassment reports." },
+  { name:"Eastern Mohammadpur", severity:"Low-Moderate", score:3, hex:"#1976d2", lat:23.7620, lng:90.3680, radius:400, rank:5, pinSize:32, stat:"Minor theft, isolated vandalism." },
+  { name:"Shyamoli Area", severity:"Low", score:2, hex:"#388e3c", lat:23.7739, lng:90.3648, radius:450, rank:6, pinSize:30, stat:"Infrequent, low-impact petty offenses." }
 ];
 
-// Initialize Map - Zoom controls moved to topright so they don't block the mobile bottom UI
 const map = L.map('map', { zoomControl:false }).setView([23.7658, 90.3580], 14.2);
 L.control.zoom({ position:'topright' }).addTo(map);
 
@@ -241,7 +243,23 @@ L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
   attribution:'&copy; OpenStreetMap &copy; CARTO', subdomains:'abcd', maxZoom:19
 }).addTo(map);
 
-// Custom Marker Generator
+const boundaryCoords = [
+  [23.7845, 90.3600], [23.7810, 90.3705], [23.7700, 90.3745],
+  [23.7580, 90.3700], [23.7460, 90.3560], [23.7430, 90.3430],
+  [23.7520, 90.3370], [23.7660, 90.3360], [23.7790, 90.3430]
+];
+
+const boundary = L.polygon(boundaryCoords, {
+  color:'var(--boundary)', weight:3, opacity:0.95, dashArray:'9 7',
+  fill:true, fillColor:'var(--boundary)', fillOpacity:0.03,
+  interactive:false, lineJoin:'round'
+}).addTo(map);
+
+L.tooltip({ permanent:true, direction:'center', className:'boundary-label', opacity:0.9 })
+  .setContent('MOHAMMADPUR')
+  .setLatLng([23.7825, 90.3565])
+  .addTo(map);
+
 function pinIcon(z){
   const html = `
     <div class="pin-wrap">
@@ -252,30 +270,31 @@ function pinIcon(z){
   return L.divIcon({ html, className:'custom-pin-icon', iconSize:[46,64], iconAnchor:[23,50], popupAnchor:[0,-48] });
 }
 
-// Popup Content Generator
 function popupHTML(z){
+  // Fix for Black/Dark text on a dark popup background:
+  const isBlack = z.hex === '#000000';
+  const popupThemeColor = isBlack ? '#ffffff' : z.hex;
+  const popupBadgeBg = isBlack ? '#ffffff22' : z.hex + '22';
+  const popupBorder = isBlack ? '#57626f' : z.hex;
+
   return `
   <div class="crime-popup">
     <div class="popup-title">${z.name}</div>
-    <div class="popup-badge" style="background:${z.hex}22;color:${z.hex};border:1px solid ${z.hex};">${z.severity}</div>
+    <div class="popup-badge" style="background:${popupBadgeBg};color:${popupThemeColor};border:1px solid ${popupBorder};">${z.severity}</div>
     <div class="popup-stat">${z.stat}</div>
-    <div class="popup-score-bar"><div style="width:${z.score*10}%;background:${z.hex}"></div></div>
+    <div class="popup-score-bar"><div style="width:${z.score*10}%;background:${popupThemeColor}"></div></div>
   </div>`;
 }
 
 const markerRefs = {};
 
-// Add Map Elements
 zones.forEach(z => {
-  // Draw Circle
   L.circle([z.lat, z.lng], { radius:z.radius, color:z.hex, weight:2, opacity:0.6, fillColor:z.hex, fillOpacity:0.15 }).addTo(map);
-  // Draw Marker
   const m = L.marker([z.lat, z.lng], { icon:pinIcon(z) }).addTo(map).bindPopup(popupHTML(z), { closeButton:false });
   m.on('click', () => setActive(z.name));
   markerRefs[z.name] = m;
 });
 
-// Build Legend
 const legendRows = document.getElementById('legend-rows');
 zones.forEach(z => {
   legendRows.innerHTML += `
@@ -286,13 +305,14 @@ zones.forEach(z => {
     </div>`;
 });
 
-// Build Zone Panel List
 const zoneList = document.getElementById('zone-list');
 zones.forEach(z => {
   const card = document.createElement('div');
   card.className = 'zone-card';
   card.id = 'card-' + z.name.replace(/\s+/g,'-');
   card.style.borderLeftColor = z.hex;
+  
+  // Safe string hexes means + '15' generates proper transparency for the sidebar badges
   card.innerHTML = `
     <div class="zc-top">
       <span class="zc-rank mono">ZONE ${String(z.rank).padStart(2,'0')}</span>
@@ -306,25 +326,21 @@ zones.forEach(z => {
     markerRefs[z.name].openPopup();
     setActive(z.name);
     
-    // Auto-close bottom sheet on mobile after selecting a zone
     if(window.innerWidth <= 768) document.getElementById('panel').classList.remove('open');
   });
   zoneList.appendChild(card);
 });
 
-// Handle Active States
 function setActive(name){
   document.querySelectorAll('.zone-card').forEach(c => c.classList.remove('active'));
   const el = document.getElementById('card-' + name.replace(/\s+/g,'-'));
   if(el){ el.classList.add('active'); el.scrollIntoView({block:'nearest', behavior:'smooth'}); }
 }
 
-// Mobile Panel Interactions
 const panel = document.getElementById('panel');
 document.getElementById('panel-toggle').addEventListener('click', () => panel.classList.add('open'));
 document.getElementById('panel-close').addEventListener('click', () => panel.classList.remove('open'));
 
-// Close panel if user taps map (Mobile UX enhancement)
 map.on('click', () => {
   if(window.innerWidth <= 768) panel.classList.remove('open');
 });
