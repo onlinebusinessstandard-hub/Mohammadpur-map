@@ -1,0 +1,772 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<title>Mohammadpur Crime Risk Mapping</title>
+<!-- No external libraries and no API keys. All location data is in the code below.
+     Basemaps: Esri World Street Map and Esri World Imagery, both free and keyless. -->
+<style>
+  :root{
+    --bg:#ffffff;
+    --land:#f4f4f2;
+    --grid:#e6e7e4;
+    --panel-2:#f2f4f7;
+    --border:#e1e6ec;
+    --ink:#161a20;
+    --ink-dim:#57626f;
+    --ink-faint:#93a0ad;
+    --boundary:#132A52;
+  }
+  *{box-sizing:border-box;}
+  html,body{
+    margin:0; padding:0; height:100%; width:100%;
+    background:var(--bg); color:var(--ink);
+    font-family:'FF Meta Serif Pro', -apple-system, BlinkMacSystemFont, serif;
+    overflow:hidden; display:flex; flex-direction:column;
+  }
+  .mono{ letter-spacing:0.04em; }
+
+  /* ---------- HEADER ---------- */
+  #header{
+    position:relative; z-index:500; padding:14px 26px;
+    background:#fff; border-bottom:1px solid var(--border);
+  }
+  #header h1{
+    font-weight:600; font-size:clamp(18px,2.6vw,28px);
+    letter-spacing:0.02em; text-transform:uppercase;
+    margin:0; line-height:1.1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  }
+  #header .subtitle{ font-size:12.5px; color:var(--ink-dim); margin-top:5px; }
+
+  /* ---------- MAP ---------- */
+  #map-wrap{ position:relative; flex:1 1 auto; min-height:0; width:100%; }
+  #map{
+    position:absolute; inset:0; background:var(--land); overflow:hidden;
+    touch-action:none; cursor:grab; user-select:none; -webkit-user-select:none;
+  }
+  #map.dragging{ cursor:grabbing; }
+  #map svg{ position:absolute; inset:0; width:100%; height:100%; display:block; }
+  #pins{ position:absolute; inset:0; pointer-events:none; }
+
+  /* Real street map (OpenStreetMap tiles, free, no key). Greyed to keep the risk colours readable. */
+  .tiles{ position:absolute; inset:0; overflow:hidden; pointer-events:none; }
+  #tiles-street{ filter:grayscale(1) contrast(0.92) brightness(1.06); opacity:0.9; }
+  #tiles-labels{ opacity:0.95; }
+  .tiles img{ position:absolute; max-width:none; user-select:none; -webkit-user-drag:none; }
+  #attrib{
+    position:absolute; right:332px; bottom:2px; z-index:600; font-size:10px; color:var(--ink-dim);
+    background:rgba(255,255,255,0.8); padding:1px 5px; border-radius:3px;
+  }
+  #attrib a{ color:inherit; }
+
+  /* Streets / Satellite switch */
+  #basemap{
+    position:absolute; top:16px; right:372px; z-index:650; display:flex;
+    background:#fff; border:1px solid var(--border); border-radius:6px; overflow:hidden;
+    box-shadow:0 2px 8px rgba(0,0,0,0.1);
+  }
+  #basemap button{
+    border:none; background:#fff; color:var(--ink-dim); padding:0 12px; height:32px;
+    font-size:11.5px; font-weight:600; letter-spacing:0.04em; cursor:pointer; font-family:inherit;
+  }
+  #basemap button + button{ border-left:1px solid var(--border); }
+  #basemap button.on{ background:var(--ink); color:#fff; }
+
+  .area-label{
+    font-size:10px; letter-spacing:0.12em; font-weight:600; text-transform:uppercase;
+    paint-order:stroke; stroke:#fff; stroke-width:3px; stroke-linejoin:round;
+  }
+  .boundary-label{
+    fill:var(--boundary); font-size:10.5px; letter-spacing:0.14em; font-weight:700;
+    paint-order:stroke; stroke:#fff; stroke-width:4px; stroke-linejoin:round;
+  }
+
+  /* ---------- CONTROLS ---------- */
+  #zoom{
+    position:absolute; top:16px; right:332px; z-index:650;
+    display:flex; flex-direction:column; border:1px solid var(--border);
+    border-radius:6px; overflow:hidden; box-shadow:0 2px 8px rgba(0,0,0,0.1);
+  }
+  #zoom button{
+    width:32px; height:32px; border:none; background:#fff; color:var(--ink);
+    font-size:18px; cursor:pointer; font-family:inherit; line-height:1;
+  }
+  #zoom button + button{ border-top:1px solid var(--border); }
+  #zoom button:hover{ background:var(--panel-2); }
+
+  #scale{
+    position:absolute; right:332px; bottom:24px; z-index:600;
+    font-size:10.5px; color:var(--ink-dim); text-align:center;
+    background:rgba(255,255,255,0.8); padding:2px 6px 4px; border-radius:3px;
+  }
+  #scale .bar{ height:6px; border:1.5px solid var(--ink-dim); border-top:none; margin-top:2px; }
+
+  /* ---------- LEGEND ---------- */
+  #legend{
+    position:absolute; left:16px; bottom:16px; z-index:600;
+    background:rgba(255,255,255,0.94); border:1px solid var(--border); border-radius:10px;
+    padding:14px 16px 12px; width:228px; box-shadow:0 8px 24px rgba(15,23,42,0.1);
+  }
+  #legend .lg-head{
+    display:flex; justify-content:space-between; font-size:10.5px; color:var(--ink-faint);
+    text-transform:uppercase; margin-bottom:10px; letter-spacing:0.1em;
+  }
+  #legend .lg-row{ display:flex; align-items:center; gap:10px; padding:4px 0; font-size:12.5px; }
+  #legend .lg-swatch{ width:12px; height:12px; border-radius:3px; flex:0 0 auto; }
+  #legend .lg-line{ width:16px; border-top:2.5px dashed var(--boundary); flex:0 0 auto; }
+  #legend .boundary-row{ padding-bottom:8px; margin-bottom:6px; border-bottom:1px solid var(--border); }
+  #legend .lg-label{ flex:1; font-weight:500; }
+  #legend .lg-score{ color:var(--ink-faint); font-size:11px; }
+
+  /* ---------- ZONE PANEL ---------- */
+  #panel{
+    position:absolute; right:16px; top:16px; bottom:16px; z-index:700; width:300px;
+    background:rgba(255,255,255,0.97); border:1px solid var(--border); border-radius:10px;
+    display:flex; flex-direction:column; overflow:hidden; box-shadow:0 12px 32px rgba(15,23,42,0.15);
+    transition:transform 0.3s cubic-bezier(0.33,1,0.68,1);
+  }
+  #panel .p-head{
+    padding:14px 16px 10px; border-bottom:1px solid var(--border);
+    display:flex; align-items:center; justify-content:space-between;
+  }
+  #panel .p-title{ font-size:11px; color:var(--ink-faint); text-transform:uppercase; letter-spacing:0.1em; }
+  #panel-close{
+    display:none; background:var(--panel-2); border:none; border-radius:50%;
+    width:28px; height:28px; font-size:14px; cursor:pointer; color:var(--ink);
+    align-items:center; justify-content:center;
+  }
+  #panel .p-list{ overflow-y:auto; padding:10px; flex:1; }
+  .zone-card{
+    background:var(--panel-2); border:1px solid var(--border); border-left:4px solid transparent;
+    border-radius:8px; padding:12px; margin-bottom:8px; cursor:pointer; transition:all 0.15s ease;
+  }
+  .zone-card:last-child{ margin-bottom:0; }
+  .zone-card:hover{ background:#eaeef3; }
+  .zone-card.active{ background:#e7ecf2; transform:translateX(2px); box-shadow:0 4px 12px rgba(0,0,0,0.05); }
+  .zc-top{ display:flex; align-items:center; justify-content:space-between; margin-bottom:6px; }
+  .zc-rank{ font-size:10px; color:var(--ink-faint); }
+  .zc-badge{ font-size:9.5px; padding:3px 8px; border-radius:20px; text-transform:uppercase; font-weight:700; letter-spacing:0.03em; }
+  .zc-name{ font-size:14px; font-weight:600; margin-bottom:8px; }
+  .zc-bar-track{ height:4px; border-radius:3px; background:#e1e6ec; overflow:hidden; margin-bottom:5px; }
+  .zc-bar-fill{ height:100%; border-radius:3px; }
+
+  #panel-toggle{
+    display:none; position:absolute; bottom:24px; left:50%; transform:translateX(-50%);
+    z-index:601; background:var(--ink); color:#fff; border:none; padding:12px 24px; border-radius:30px;
+    font-size:12px; font-weight:600; letter-spacing:0.05em; cursor:pointer; white-space:nowrap;
+    box-shadow:0 4px 16px rgba(0,0,0,0.3); font-family:inherit;
+  }
+
+  /* ---------- PINS ---------- */
+  .pin{ position:absolute; width:0; height:0; pointer-events:auto; cursor:pointer; }
+  .pin-dot{
+    position:absolute; border-radius:50%; display:flex; align-items:center; justify-content:center;
+    border:2.5px solid #fff; color:#fff; font:700 11px/1 -apple-system, 'Segoe UI', Roboto, sans-serif;
+    font-variant-numeric:tabular-nums; letter-spacing:0;
+    box-shadow:0 1px 2px rgba(0,0,0,0.25), 0 4px 12px rgba(0,0,0,0.28);
+    transition:transform 0.18s ease, box-shadow 0.18s ease;
+  }
+  .pin-dot.light{ color:var(--ink); }
+  .pin:hover .pin-dot, .pin.active .pin-dot{
+    transform:scale(1.18);
+    box-shadow:0 0 0 3px rgba(255,255,255,0.6), 0 6px 16px rgba(0,0,0,0.35);
+  }
+  .pin-pulse{
+    position:absolute; border-radius:50%; pointer-events:none;
+    animation:pin-pulse 2.2s cubic-bezier(0.2,0.6,0.35,1) infinite;
+  }
+  @keyframes pin-pulse{
+    0%  { transform:scale(1);   opacity:0.55; }
+    100%{ transform:scale(2.8); opacity:0; }
+  }
+  @media (prefers-reduced-motion:reduce){ .pin-pulse{ animation:none; opacity:0; } }
+
+  /* ---------- POPUP ---------- */
+  #popup{
+    position:absolute; z-index:640; width:250px; display:none; pointer-events:auto;
+    background:#12161d; color:#e9edf2; border:1px solid #232b36; border-radius:10px;
+    box-shadow:0 6px 20px rgba(0,0,0,0.3); transform:translate(-50%,-100%);
+  }
+  #popup::after{
+    content:""; position:absolute; left:50%; bottom:-7px; width:12px; height:12px;
+    background:#12161d; transform:translateX(-50%) rotate(45deg);
+    border-right:1px solid #232b36; border-bottom:1px solid #232b36;
+  }
+  .crime-popup{ padding:14px 15px 12px; }
+  .popup-title{ font-size:18px; font-weight:600; color:#fff; margin-bottom:8px; }
+  .popup-badge{
+    display:inline-block; font-size:10.5px; font-weight:700; padding:3px 9px;
+    border-radius:20px; text-transform:uppercase; margin-bottom:10px;
+  }
+  .popup-stat{ font-size:12px; color:#8b96a5; line-height:1.5; margin-bottom:10px; }
+  .popup-score-bar{ height:5px; border-radius:3px; background:#232b36; overflow:hidden; }
+  .popup-score-bar > div{ height:100%; border-radius:3px; }
+
+  /* ---------- MOBILE ---------- */
+  @media (max-width:768px){
+    #header{ padding:12px 16px; }
+    #header .subtitle{ display:none; }
+    #zoom{ right:10px; top:10px; }
+    #scale{ right:10px; bottom:76px; }
+    #attrib{ right:auto; left:4px; bottom:2px; font-size:9px; }
+    #basemap{ right:50px; top:10px; }
+    #basemap button{ padding:0 9px; font-size:11px; }
+    #legend{
+      left:10px; top:10px; bottom:auto; width:auto; padding:10px;
+      transform-origin:top left; transform:scale(0.78);
+    }
+    #panel{
+      right:0; left:0; bottom:0; top:auto; width:100%; height:55%;
+      border-radius:24px 24px 0 0; border:none; border-top:1px solid var(--border);
+      transform:translateY(110%);
+    }
+    #panel.open{ transform:translateY(0); }
+    #panel-close{ display:flex; }
+    #panel-toggle{ display:block; }
+    #panel.open ~ #panel-toggle{ display:none; }
+  }
+  /* Very narrow phones: stack the Streets/Satellite switch under the zoom buttons */
+  @media (max-width:380px){
+    #basemap{ top:84px; right:10px; flex-direction:column; }
+    #basemap button{ height:30px; padding:0 8px; }
+    #basemap button + button{ border-left:none; border-top:1px solid var(--border); }
+  }
+</style>
+</head>
+<body>
+
+<div id="header">
+  <h1>Crime Risk Mapping</h1>
+  <div class="subtitle">Zone-based severity assessment — Mohammadpur Thana</div>
+</div>
+
+<div id="map-wrap">
+  <div id="map">
+    <div class="tiles" id="tiles-street"></div>
+    <div class="tiles" id="tiles-sat"></div>
+    <div class="tiles" id="tiles-labels"></div>
+    <svg id="svg" xmlns="http://www.w3.org/2000/svg"></svg>
+    <div id="pins"></div>
+    <div id="popup"></div>
+  </div>
+
+  <div id="zoom">
+    <button id="zoom-in" title="Zoom in">+</button>
+    <button id="zoom-out" title="Zoom out">−</button>
+  </div>
+  <div id="basemap">
+    <button data-mode="street" class="on">Streets</button>
+    <button data-mode="satellite">Satellite</button>
+  </div>
+  <div id="attrib"></div>
+  <div id="scale"><span id="scale-label"></span><div class="bar" id="scale-bar"></div></div>
+
+  <div id="legend">
+    <div class="lg-head"><span>Risk Legend</span><span>6 Zones</span></div>
+    <div class="lg-row boundary-row">
+      <div class="lg-line"></div>
+      <div class="lg-label">Mohammadpur Boundary</div>
+    </div>
+    <div id="legend-rows"></div>
+  </div>
+
+  <div id="panel">
+    <div class="p-head">
+      <span class="p-title mono">Zone Index</span>
+      <button id="panel-close" title="Close panel">✕</button>
+    </div>
+    <div class="p-list" id="zone-list"></div>
+  </div>
+
+  <button id="panel-toggle">VIEW ZONE INDEX ▲</button>
+</div>
+
+<script>
+(function(){
+/* =====================================================================
+   LOCATION DATA — edit coordinates here (latitude, longitude in degrees,
+   radius in metres). Everything on the map is drawn from this block.
+   ===================================================================== */
+const BOUNDARY = {
+  name: 'MOHAMMADPUR',
+  labelAt: [23.76862, 90.35118],
+  // Traced from the Google Maps outline of Mohammadpur (accuracy roughly ±40 m)
+  coords: [
+    [23.77338, 90.36612],
+    [23.77267, 90.36727],
+    [23.77188, 90.36779],
+    [23.77071, 90.36835],
+    [23.76914, 90.36886],
+    [23.76737, 90.36951],
+    [23.76580, 90.36994],
+    [23.76462, 90.37041],
+    [23.76324, 90.37079],
+    [23.76207, 90.37122],
+    [23.76089, 90.37208],
+    [23.75983, 90.37285],
+    [23.75873, 90.37350],
+    [23.75794, 90.37393],
+    [23.75735, 90.37405],
+    [23.75723, 90.37285],
+    [23.75712, 90.37157],
+    [23.75696, 90.37028],
+    [23.75676, 90.36921],
+    [23.75637, 90.36830],
+    [23.75519, 90.36822],
+    [23.75401, 90.36813],
+    [23.75390, 90.36727],
+    [23.75382, 90.36642],
+    [23.75354, 90.36582],
+    [23.75401, 90.36521],
+    [23.75433, 90.36453],
+    [23.75460, 90.36376],
+    [23.75519, 90.36298],
+    [23.75578, 90.36234],
+    [23.75606, 90.36170],
+    [23.75617, 90.36105],
+    [23.75606, 90.36041],
+    [23.75590, 90.35964],
+    [23.75578, 90.35869],
+    [23.75586, 90.35762],
+    [23.75598, 90.35655],
+    [23.75657, 90.35547],
+    [23.75774, 90.35419],
+    [23.75853, 90.35311],
+    [23.75932, 90.35225],
+    [23.76030, 90.35140],
+    [23.76108, 90.35032],
+    [23.76207, 90.34925],
+    [23.76285, 90.34848],
+    [23.76403, 90.34775],
+    [23.76521, 90.34719],
+    [23.76619, 90.34676],
+    [23.76717, 90.34637],
+    [23.76776, 90.34603],
+    [23.76835, 90.34689],
+    [23.76894, 90.34775],
+    [23.76972, 90.34882],
+    [23.77031, 90.34968],
+    [23.77071, 90.35045],
+    [23.77110, 90.35182],
+    [23.77149, 90.35290],
+    [23.77188, 90.35397],
+    [23.77236, 90.35483],
+    [23.77271, 90.35547],
+    [23.77291, 90.35633],
+    [23.77279, 90.35740],
+    [23.77255, 90.35848],
+    [23.77216, 90.35955],
+    [23.77192, 90.36041],
+    [23.77177, 90.36092],
+    [23.77228, 90.36127],
+    [23.77263, 90.36212],
+    [23.77294, 90.36298],
+    [23.77326, 90.36393],
+    [23.77334, 90.36513]
+  ]
+};
+
+const zones = [
+  { name:"Geneva Camp",         severity:"Critical",      score:9, hex:"#d32f2f", lat:23.76857, lng:90.36506, radius:340, rank:1, stat:"Drug-related offenses, extortion reports." },
+  { name:"Bosila",              severity:"High",          score:7, hex:"#000000", lat:23.75638, lng:90.35865, radius:400, rank:2, stat:"Robbery, localized gang-related activity." },
+  { name:"Adabor",              severity:"Moderate-High", score:6, hex:"#1f4343", lat:23.77345, lng:90.35503, radius:430, rank:3, stat:"Burglary, street-level theft." },
+  { name:"Central Mohammadpur", severity:"Moderate",      score:5, hex:"#fbc02d", lat:23.7656, lng:90.3595, radius:400, rank:4, stat:"Petty theft, public harassment reports." },
+  { name:"Eastern Mohammadpur", severity:"Low-Moderate",  score:3, hex:"#1976d2", lat:23.7628, lng:90.3655, radius:400, rank:5, stat:"Minor theft, isolated vandalism." },
+  { name:"Shyamoli Area",       severity:"Low",           score:2, hex:"#388e3c", lat:23.77428, lng:90.36335, radius:450, rank:6, stat:"Infrequent, low-impact petty offenses." }
+];
+/* ===================================================================== */
+
+const BOUNDARY_COLOR = '#132A52';
+const R = 6378137;
+const LAT0 = 23.765;
+const MERC_PER_M = 1 / Math.cos(LAT0 * Math.PI / 180);   // Web Mercator stretch at this latitude
+
+function project(lat, lng){
+  return {
+    x: R * lng * Math.PI / 180,
+    y: R * Math.log(Math.tan(Math.PI / 4 + lat * Math.PI / 360))
+  };
+}
+
+const mapEl   = document.getElementById('map');
+const svg     = document.getElementById('svg');
+const pinsEl  = document.getElementById('pins');
+const popupEl = document.getElementById('popup');
+const panel   = document.getElementById('panel');
+
+const bPts = BOUNDARY.coords.map(c => project(c[0], c[1]));
+zones.forEach(z => { z.p = project(z.lat, z.lng); });
+
+// View state: centre (mercator metres) and resolution (mercator metres per screen pixel)
+const view = { cx:0, cy:0, res:1 };
+let W = 0, H = 0, fitRes = 1, activeZone = null;
+
+const isMobile = () => window.innerWidth <= 768;
+
+function toScreen(p){ return [W/2 + (p.x - view.cx)/view.res, H/2 - (p.y - view.cy)/view.res]; }
+function toMerc(sx, sy){ return { x: view.cx + (sx - W/2)*view.res, y: view.cy - (sy - H/2)*view.res }; }
+
+function fitView(){
+  let minX=Infinity, maxX=-Infinity, minY=Infinity, maxY=-Infinity;
+  bPts.forEach(p => { minX=Math.min(minX,p.x); maxX=Math.max(maxX,p.x); minY=Math.min(minY,p.y); maxY=Math.max(maxY,p.y); });
+  zones.forEach(z => { const r = z.radius*MERC_PER_M; minX=Math.min(minX,z.p.x-r); maxX=Math.max(maxX,z.p.x+r); minY=Math.min(minY,z.p.y-r); maxY=Math.max(maxY,z.p.y+r); });
+  const padL = isMobile() ? 24 : 260, padR = isMobile() ? 24 : 340, padT = isMobile() ? 175 : 30, padB = isMobile() ? 90 : 30;
+  const availW = Math.max(120, W - padL - padR), availH = Math.max(120, H - padT - padB);
+  fitRes = Math.max((maxX-minX)/availW, (maxY-minY)/availH);
+  view.res = fitRes;
+  view.cx = (minX+maxX)/2 - ((padL - padR)/2)*view.res;
+  view.cy = (minY+maxY)/2 + ((padT - padB)/2)*view.res;
+}
+
+function clampRes(r){ return Math.min(fitRes*3, Math.max(fitRes/24, r)); }
+
+/* ---------- Basemap tiles ---------- */
+const WORLD = 2 * Math.PI * R;
+const ATTRIB = {
+  street:    'Map © <a href="https://www.esri.com" target="_blank" rel="noopener">Esri</a>, HERE, Garmin, © OpenStreetMap contributors',
+  satellite: 'Imagery © <a href="https://www.esri.com" target="_blank" rel="noopener">Esri</a>, Maxar, Earthstar Geographics · Labels © Esri'
+};
+const LAYERS = {
+  street:    { url:'https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}', maxZ:19, el:'tiles-street' },
+  satellite: { url:'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', maxZ:19, el:'tiles-sat' },
+  labels:    { url:'https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}', maxZ:19, el:'tiles-labels' }
+};
+Object.values(LAYERS).forEach(L => { L.el = document.getElementById(L.el); L.imgs = new Map(); });
+
+let basemap = 'street';
+let tilesOk = false;
+
+function activeLayers(){ return basemap === 'satellite' ? ['satellite','labels'] : ['street']; }
+
+function renderLayer(L){
+  // Pick the tile zoom whose native resolution is closest to (and not blurrier than) the view
+  const zf = Math.log2(WORLD / (256 * view.res));
+  const z = Math.max(0, Math.min(L.maxZ, Math.ceil(zf - 0.25)));
+  const n = Math.pow(2, z);
+  const tilePx = (WORLD / n) / view.res;               // on-screen size of one tile
+  const tl = toMerc(0, 0), br = toMerc(W, H);
+  const tx0 = Math.floor((tl.x + WORLD/2) / WORLD * n), tx1 = Math.floor((br.x + WORLD/2) / WORLD * n);
+  const ty0 = Math.floor((WORLD/2 - tl.y) / WORLD * n), ty1 = Math.floor((WORLD/2 - br.y) / WORLD * n);
+  const keep = new Set();
+  for (let tx = tx0; tx <= tx1; tx++){
+    for (let ty = ty0; ty <= ty1; ty++){
+      if (ty < 0 || ty >= n) continue;
+      const key = z + '/' + tx + '/' + ty;
+      keep.add(key);
+      let img = L.imgs.get(key);
+      if (!img){
+        img = new Image();
+        img.alt = '';
+        img.draggable = false;
+        img.onload = () => { if (!tilesOk){ tilesOk = true; render(); } };
+        img.onerror = () => { img.style.visibility = 'hidden'; };
+        const wx = ((tx % n) + n) % n;
+        img.src = L.url.replace('{z}', z).replace('{x}', wx).replace('{y}', ty);
+        L.el.appendChild(img);
+        L.imgs.set(key, img);
+      }
+      const s = toScreen({ x: tx / n * WORLD - WORLD/2, y: WORLD/2 - ty / n * WORLD });
+      img.style.left = s[0] + 'px';
+      img.style.top = s[1] + 'px';
+      img.style.width = img.style.height = (tilePx + 0.5) + 'px';
+    }
+  }
+  L.imgs.forEach((img, key) => { if (!keep.has(key)){ img.remove(); L.imgs.delete(key); } });
+}
+
+function renderTiles(){
+  const on = activeLayers();
+  Object.entries(LAYERS).forEach(([name, L]) => {
+    if (on.includes(name)){ L.el.style.display = ''; renderLayer(L); }
+    else { L.el.style.display = 'none'; }
+  });
+}
+
+function setBasemap(mode){
+  basemap = mode;
+  document.querySelectorAll('#basemap button').forEach(b => b.classList.toggle('on', b.dataset.mode === mode));
+  document.getElementById('attrib').innerHTML = ATTRIB[mode];
+  render();
+}
+document.querySelectorAll('#basemap button').forEach(b => {
+  b.addEventListener('pointerdown', e => e.stopPropagation());
+  b.addEventListener('click', () => setBasemap(b.dataset.mode));
+});
+document.getElementById('attrib').innerHTML = ATTRIB[basemap];
+
+/* ---------- Drawing ---------- */
+const NS = 'http://www.w3.org/2000/svg';
+
+function niceStep(target){
+  const pow = Math.pow(10, Math.floor(Math.log10(target)));
+  const n = target / pow;
+  return (n < 1.5 ? 1 : n < 3.5 ? 2 : n < 7.5 ? 5 : 10) * pow;
+}
+
+function render(){
+  renderTiles();
+  let out = '';
+  if (!tilesOk){   // fallback grid only when the street map can't load
+
+  // Background grid (every ~100px, snapped to a round distance in metres)
+  const stepM = niceStep(110 * view.res / MERC_PER_M);
+  const step = stepM * MERC_PER_M;
+  const tl = toMerc(0,0), br = toMerc(W,H);
+  for (let x = Math.floor(tl.x/step)*step; x <= br.x; x += step){
+    const sx = toScreen({x, y:0})[0];
+    out += `<line x1="${sx}" y1="0" x2="${sx}" y2="${H}" stroke="var(--grid)" stroke-width="1"/>`;
+  }
+  for (let y = Math.floor(br.y/step)*step; y <= tl.y; y += step){
+    const sy = toScreen({x:0, y})[1];
+    out += `<line x1="0" y1="${sy}" x2="${W}" y2="${sy}" stroke="var(--grid)" stroke-width="1"/>`;
+  }
+  }
+
+  // Boundary
+  const d = bPts.map((p,i) => { const s = toScreen(p); return (i ? 'L' : 'M') + s[0].toFixed(1) + ' ' + s[1].toFixed(1); }).join(' ') + ' Z';
+  const sat = basemap === 'satellite';
+  out += `<path d="${d}" fill="none" stroke="#ffffff" stroke-width="${sat ? 6 : 5}" stroke-opacity="${sat ? 0.9 : 0.7}" stroke-linejoin="round"/>`;
+  out += `<path d="${d}" fill="${BOUNDARY_COLOR}" fill-opacity="${sat ? 0 : 0.04}" stroke="${BOUNDARY_COLOR}" stroke-width="3" stroke-opacity="0.95" stroke-dasharray="9 7" stroke-linejoin="round"/>`;
+
+  // Zone circles
+  zones.forEach(z => {
+    const s = toScreen(z.p);
+    const r = z.radius * MERC_PER_M / view.res;
+    out += `<circle cx="${s[0]}" cy="${s[1]}" r="${r}" fill="${z.hex}" fill-opacity="${sat ? 0.28 : 0.15}" stroke="${sat ? '#ffffff' : z.hex}" stroke-opacity="${sat ? 0.9 : 0.6}" stroke-width="2"/>`;
+  });
+
+  // Zone name labels (below each circle, shown once zoomed in enough to fit)
+  zones.forEach(z => {
+    const s = toScreen(z.p);
+    const r = z.radius * MERC_PER_M / view.res;
+    if (r > z.name.length * 4.2) out += `<text class="area-label" x="${s[0]}" y="${s[1] + r - 8}" text-anchor="middle" fill="${z.hex === '#fbc02d' ? '#a07800' : z.hex}">${z.name}</text>`;
+  });
+
+  // Boundary name
+  const ls = toScreen(project(BOUNDARY.labelAt[0], BOUNDARY.labelAt[1]));
+  out += `<text class="boundary-label" x="${ls[0]}" y="${ls[1]}" text-anchor="middle">${BOUNDARY.name}</text>`;
+
+  svg.innerHTML = out;
+
+  // Pins (HTML overlay so they stay crisp and clickable)
+  zones.forEach(z => {
+    const s = toScreen(z.p);
+    z.pinEl.style.left = s[0] + 'px';
+    z.pinEl.style.top  = s[1] + 'px';
+    z.pinEl.classList.toggle('active', activeZone === z);
+  });
+
+  // Popup
+  if (activeZone){
+    const s = toScreen(activeZone.p);
+    popupEl.style.left = s[0] + 'px';
+    popupEl.style.top  = (s[1] - activeZone.pinHalf - 14) + 'px';
+  }
+
+  // Scale bar
+  const mPerPx = view.res / MERC_PER_M;
+  const sm = niceStep(90 * mPerPx);
+  document.getElementById('scale-bar').style.width = (sm / mPerPx) + 'px';
+  document.getElementById('scale-label').textContent = sm >= 1000 ? (sm/1000) + ' km' : sm + ' m';
+}
+
+/* ---------- Pins ---------- */
+zones.forEach(z => {
+  const el = document.createElement('div');
+  el.className = 'pin';
+  el.style.zIndex = 10 - z.rank;
+  const size = Math.round(22 + z.score * 1.2);           // higher risk = slightly bigger marker
+  const off = -size / 2;
+  const light = z.hex === '#fbc02d';                       // dark number on the yellow marker
+  el.innerHTML =
+    (z.score >= 7 ? `<div class="pin-pulse" style="width:${size}px;height:${size}px;left:${off}px;top:${off}px;background:${z.hex};"></div>` : '') +
+    `<div class="pin-dot${light ? ' light' : ''}" style="width:${size}px;height:${size}px;left:${off}px;top:${off}px;background:${z.hex};">${z.rank}</div>`;
+  el.title = z.name + ' — ' + z.severity;
+  z.pinHalf = size / 2;
+  el.addEventListener('pointerdown', e => e.stopPropagation());
+  el.addEventListener('click', e => { e.stopPropagation(); openPopup(z); setActive(z.name); });
+  pinsEl.appendChild(el);
+  z.pinEl = el;
+});
+
+function popupHTML(z){
+  const isBlack = z.hex === '#000000';
+  const c  = isBlack ? '#ffffff' : z.hex;
+  const bg = isBlack ? '#ffffff22' : z.hex + '22';
+  const bd = isBlack ? '#57626f' : z.hex;
+  return `<div class="crime-popup">
+    <div class="popup-title">${z.name}</div>
+    <div class="popup-badge" style="background:${bg};color:${c};border:1px solid ${bd};">${z.severity}</div>
+    <div class="popup-stat">${z.stat}</div>
+    <div class="popup-score-bar"><div style="width:${z.score*10}%;background:${c}"></div></div>
+  </div>`;
+}
+
+function openPopup(z){
+  activeZone = z;
+  popupEl.innerHTML = popupHTML(z);
+  popupEl.style.display = 'block';
+  render();
+}
+function closePopup(){ activeZone = null; popupEl.style.display = 'none'; render(); }
+popupEl.addEventListener('pointerdown', e => e.stopPropagation());
+
+/* ---------- Animation ---------- */
+let anim = null;
+function flyTo(p, targetRes, ms){
+  cancelAnimationFrame(anim);
+  const a = { cx:view.cx, cy:view.cy, res:view.res };
+  // On desktop, keep the target clear of the side panel
+  const offX = isMobile() ? 0 : 150;
+  const res = clampRes(targetRes);
+  const b = { cx:p.x + offX*res, cy:p.y + 90*res, res };   // nudge up so the popup fits above the pin
+  const t0 = performance.now();
+  (function step(t){
+    const k = Math.min(1, (t - t0) / ms);
+    const e = k < 0.5 ? 2*k*k : 1 - Math.pow(-2*k + 2, 2)/2;
+    view.cx = a.cx + (b.cx - a.cx)*e;
+    view.cy = a.cy + (b.cy - a.cy)*e;
+    view.res = Math.exp(Math.log(a.res) + (Math.log(b.res) - Math.log(a.res))*e);
+    render();
+    if (k < 1) anim = requestAnimationFrame(step);
+  })(t0);
+}
+
+function zoomAt(factor, sx, sy){
+  const m = toMerc(sx, sy);
+  view.res = clampRes(view.res / factor);
+  view.cx = m.x - (sx - W/2)*view.res;
+  view.cy = m.y + (sy - H/2)*view.res;
+  render();
+}
+
+/* ---------- Pan / zoom input ---------- */
+const pointers = new Map();
+let moved = 0, pinch = null;
+
+mapEl.addEventListener('pointerdown', e => {
+  mapEl.setPointerCapture(e.pointerId);
+  pointers.set(e.pointerId, { x:e.clientX, y:e.clientY });
+  cancelAnimationFrame(anim);
+  moved = 0;
+  if (pointers.size === 2){
+    const [p1, p2] = [...pointers.values()];
+    pinch = { d: Math.hypot(p1.x-p2.x, p1.y-p2.y) };
+  }
+  mapEl.classList.add('dragging');
+});
+
+mapEl.addEventListener('pointermove', e => {
+  if (!pointers.has(e.pointerId)) return;
+  const prev = pointers.get(e.pointerId);
+  const cur = { x:e.clientX, y:e.clientY };
+  pointers.set(e.pointerId, cur);
+  if (pointers.size === 1){
+    const dx = cur.x - prev.x, dy = cur.y - prev.y;
+    moved += Math.abs(dx) + Math.abs(dy);
+    view.cx -= dx * view.res;
+    view.cy += dy * view.res;
+    render();
+  } else if (pointers.size === 2 && pinch){
+    const [p1, p2] = [...pointers.values()];
+    const d = Math.hypot(p1.x-p2.x, p1.y-p2.y);
+    const rect = mapEl.getBoundingClientRect();
+    zoomAt(d / pinch.d, (p1.x+p2.x)/2 - rect.left, (p1.y+p2.y)/2 - rect.top);
+    pinch.d = d;
+    moved += 10;
+  }
+});
+
+function endPointer(e){
+  if (!pointers.has(e.pointerId)) return;
+  pointers.delete(e.pointerId);
+  if (pointers.size < 2) pinch = null;
+  if (pointers.size === 0){
+    mapEl.classList.remove('dragging');
+    if (moved < 5 && e.type === 'pointerup'){
+      closePopup();
+      if (isMobile()) panel.classList.remove('open');
+    }
+  }
+}
+mapEl.addEventListener('pointerup', endPointer);
+mapEl.addEventListener('pointercancel', endPointer);
+
+mapEl.addEventListener('wheel', e => {
+  e.preventDefault();
+  const rect = mapEl.getBoundingClientRect();
+  zoomAt(Math.exp(-e.deltaY * 0.0015), e.clientX - rect.left, e.clientY - rect.top);
+}, { passive:false });
+
+mapEl.addEventListener('dblclick', e => {
+  const rect = mapEl.getBoundingClientRect();
+  zoomAt(2, e.clientX - rect.left, e.clientY - rect.top);
+});
+
+document.getElementById('zoom-in').addEventListener('click',  () => zoomAt(1.5, W/2, H/2));
+document.getElementById('zoom-out').addEventListener('click', () => zoomAt(1/1.5, W/2, H/2));
+
+/* ---------- Legend ---------- */
+const legendRows = document.getElementById('legend-rows');
+zones.forEach(z => {
+  legendRows.insertAdjacentHTML('beforeend', `
+    <div class="lg-row">
+      <div class="lg-swatch" style="background:${z.hex};"></div>
+      <div class="lg-label">${z.severity}</div>
+      <div class="lg-score mono">${z.score}/10</div>
+    </div>`);
+});
+
+/* ---------- Zone index ---------- */
+const zoneList = document.getElementById('zone-list');
+zones.forEach(z => {
+  const card = document.createElement('div');
+  card.className = 'zone-card';
+  card.id = 'card-' + z.rank;
+  card.style.borderLeftColor = z.hex;
+  card.innerHTML = `
+    <div class="zc-top">
+      <span class="zc-rank mono">ZONE ${String(z.rank).padStart(2,'0')}</span>
+      <span class="zc-badge" style="background:${z.hex}15;color:${z.hex};">${z.severity}</span>
+    </div>
+    <div class="zc-name">${z.name}</div>
+    <div class="zc-bar-track"><div class="zc-bar-fill" style="width:${z.score*10}%;background:${z.hex}"></div></div>`;
+  card.addEventListener('click', () => {
+    if (isMobile()) panel.classList.remove('open');
+    setActive(z.name);
+    openPopup(z);
+    flyTo(z.p, fitRes / 2.2, 600);
+  });
+  zoneList.appendChild(card);
+});
+
+function setActive(name){
+  zones.forEach(z => {
+    const el = document.getElementById('card-' + z.rank);
+    el.classList.toggle('active', z.name === name);
+    if (z.name === name) el.scrollIntoView({ block:'nearest', behavior:'smooth' });
+  });
+}
+
+document.getElementById('panel-toggle').addEventListener('click', () => panel.classList.add('open'));
+document.getElementById('panel-close').addEventListener('click', () => panel.classList.remove('open'));
+
+/* ---------- Sizing ---------- */
+let fitted = false;
+function resize(){
+  const r = mapEl.getBoundingClientRect();
+  if (!r.width || !r.height) return;
+  W = r.width; H = r.height;
+  svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+  if (!fitted){ fitView(); fitted = true; }
+  else { const keep = view.res; fitView(); view.res = clampRes(keep); }
+  render();
+}
+if ('ResizeObserver' in window) new ResizeObserver(resize).observe(mapEl);
+window.addEventListener('resize', resize);
+resize();
+})();
+</script>
+</body>
+</html>
